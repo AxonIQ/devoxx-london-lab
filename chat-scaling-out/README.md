@@ -3,6 +3,17 @@ Axon Lab - Scaling out
 
 So, you have selected the advanced Lab. Good job!
 
+Obviously, this Chat application is expected to be a massive success, and it needs to be ready to scale to massive 
+proportions. Therefore, we are going to configure the application to work with multiple nodes efficiently.
+
+There are multiple ways of doing that using Axon Framework.
+It can be fully done using open source technology. This option has been around
+for a few years. The CommandBus can be distributed using Spring Cloud or JGroups,
+and the EventBus can be distributed using tracking event processors or AMQP. 
+It can also be done using AxonIQ's AxonHub/AxonDB platform (which have a free
+developer edition), which is generally easier to do. For this lab, you can pick
+your method of choice or do both and compare the experience.
+
 Application overview
 --------------------
 
@@ -10,7 +21,6 @@ The main application is called `ChatScalingOutApplication`. It's a Spring Boot a
 the following main dependencies:
  - Axon (spring boot starter)
  - Spring Data JPA
- - Freemarker
  - Web 
  - Spring Boot Test
  - Axon Test
@@ -58,14 +68,8 @@ Visit: http://localhost:8080/h2-console
 Enter JDBC URL: jdbc:h2:tcp://localhost:9092/mem:testdb  
 Leave other values to defaults and click 'connect'
 
-Our goal
---------
-
-Obviously, this Chat application is expected to be a massive success, and it needs to be ready to scale to massive 
-proportions. Therefore, we are going to configure the application to work with multiple nodes efficiently.
-
-Commands will have to be consistently routed based on the Chat Room ID that they target. Event processing will have to
-be distributed as well. We are going to use a combination of Tracking Processors and Rabbit MQ to do this.
+Option 1: Using open source technology
+======================================
 
 Preparation
 -----------
@@ -79,7 +83,13 @@ docker create --name rabbitmq -p 4369:4369 -p 5671:5671 -p 5672:5672 -p 15671:15
 docker start rabbitmq
 ```
 
-If you don't have Docker, you can [download](http://www.rabbitmq.com/download.html) and install RabbitMQ the regular 
+If you don't have Docker, we have multiple Docker installers available on the installation
+media. There's also a pre-downloaded docker image, which can load using:
+```bash
+docker load <rabbitmq.docker
+```
+
+Alternatively, you can [download](http://www.rabbitmq.com/download.html) and install RabbitMQ the regular 
 way.
 
 Exercises
@@ -194,6 +204,103 @@ And that's what we need to do next:
 remember?)
 2. In `application.properties`, define this bean as being the source:  
    `axon.eventhandling.processors.participants.source=participantEvents`
+
+Option 2: Using open source technology
+======================================
+
+Preparation
+-----------
+
+Download AxonDB from https://axoniq.io or unpack it from the 
+installation media. Unpack and copy it to a directory of your
+choice. Run the .jar file. AxonDB should start succesfully. Its
+web interface will be available on port 8023.
+
+Once you have AxonDB running like this, do the same with AxonHub.
+In axonhub.properties, change the property `axoniq.axondb.servers` to
+`localhost`. Run the .jar. AxonHub should start and the web interface
+should be available on port 8024.
+
+Exercises
+---------
+
+### Tracking Processor ###
+
+By default, events are handled on the node (and thread) that publishes them. While this happens to work fine for our 
+use case, this is not how we want it. Instead, we want to process events in a separate thread.
+
+In Axon, you can use a so-called Tracking Processor to process events asynchronously. The processor will
+tail the Events in the Event Store (or any other source that supports Tracking). It keeps track of which events it has 
+processed through a TokenStore. Axon will automatically create a JPA based token store if it detects JPA on the 
+classpath (which the application has).
+
+AxonHub currently works exclusively with Tracking event processors so we'll
+change our application to default to using Tracking rather than Subscribing event
+processors. To this end, add the following to your main Spring Boot
+class:
+
+```
+@Autowired
+public void configure(EventHandlingConfiguration config) {
+    config.usingTrackingProcessors();
+}
+```
+Restart your application, and processing is now asynchronous. Check out the "TOKEN_ENTRY" table in the H2 Console to
+see the token being updated.
+
+### Enabling AxonHub ###
+
+To enable AxonHub, add the following dependency:
+
+```xml
+<dependency>
+    <groupId>io.axoniq</groupId>
+    <artifactId>axonhub-spring-boot-autoconfigure</artifactId>
+    <version>1.0</version>
+</dependency>
+```
+In file application.properties, add a property `axoniq.axonhub.servers` with
+value `localhost`.
+
+The AxonHub Spring Boot autoconfigure module will automatically setup
+an AxonHub-backed version of the CommandBus, EventBus and QueryBus, if no others
+are configured explicitly.
+
+You should now be able to run the application again and issue a few test
+requests. Have a look at the AxonHub architecture overview on localhost:8024
+and have a look at AxonDB on localhost:8023. In the ad-hoc query interface 
+you should be able to see the events. Hint: executing an empty query simply gives
+all events.
+
+### Queries via AxonHub ###
+
+Up to Axon Framework 3.1, the framework offered support for distributing
+command and events, but didn't explicitly support queries. Users typically solved
+this on an ad-hoc basis, such as by exposing query handling methods as REST 
+endpoints. Starting from Axon Framework 3.2, there is an explicit query bus and
+it can be distributed using AxonHub.
+
+In the demo application, you find REST query handlers that directly call Spring Data
+repositories. As an excercise, you'll split these in two parts: a REST query handler
+which sends a query to the querybus, and a `@QueryHandler` annotated method which call
+Spring Data. You may keep these two methods in the same class; in separated classes; or 
+in totally separate processes - AxonHub will take care of the distribution.
+
+There are 3 separate projections. You can do this for all of them. You'll find that
+the participants and room summary cases are identical, but messages is a bit different.
+
+We aren't going to spell out how to do this in detail, but a few pointers:
+* In all cases, you will need to define a query class similarly to commands and events.
+* You need to inject a `QueryGateway` similarly to the `CommandGateway`.
+* In the participants and room summary cases, the query returns a `List`. The querybus
+API is aware of this type, use `ResponseTypes.multipleInstancesOf`. For the
+chat message case, the projections return a `Page<ChatMessage>` which
+is Spring Data specific and not known to Axon. To make this work,
+you'll need to define a new reponse class (easiest by extending `PageImpl<ChatMessage`)
+and using `ResponsesTypes.instanceOf`.
+
+For both options 1 and 2
+========================
 
 ### Off the beaten track (Bonus Exercises) ###
 
