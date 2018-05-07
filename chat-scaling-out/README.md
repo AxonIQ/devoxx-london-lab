@@ -205,8 +205,8 @@ remember?)
 2. In `application.properties`, define this bean as being the source:  
    `axon.eventhandling.processors.participants.source=participantEvents`
 
-Option 2: Using open source technology
-======================================
+Option 2: Using AxonHub and AxonDB
+==================================
 
 Preparation
 -----------
