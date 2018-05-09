@@ -26,7 +26,7 @@ The application's logic is divided among a number of packages.
 - `io.axoniq.labs.chat`  
   the main package. Contains the Application class with the configuration.
 - `io.axoniq.labs.chat.commandmodel`  
-  contains the Command Model. In our case, just the `Room` Aggregatet that has been provided to make the project 
+  contains the Command Model. In our case, just the `Room` Aggregate that has been provided to make the project 
   compile.
 - `io.axoniq.labs.chat.coreapi`  
   The so called *core api*. This is where we put the Commands and Events. 
@@ -48,7 +48,7 @@ The application's logic is divided among a number of packages.
 ### Swagger UI ###
 The application has Swagger enabled. You can use Swagger to send requests.
 
-Visit: http://localhost:8080/swagger-ui.html
+Visit: [localhost:8080/swagger-ui.html](http://localhost:8080/swagger-ui.html)
 
 ### H2 Console ###
 The application has the H2 Console configured, so you can peek into the database's contents.
