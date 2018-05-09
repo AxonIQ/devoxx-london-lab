@@ -48,7 +48,7 @@ The application's logic is divided among a number of packages.
 ### Swagger UI ###
 The application has Swagger enabled. You can use Swagger to send requests.
 
-Visit: [localhost:8080/swagger-ui.html](localhost:8080/swagger-ui.html)
+Visit: [localhost:8080/swagger-ui.html](http://localhost:8080/swagger-ui.html)
 
 ### H2 Console ###
 The application has the H2 Console configured, so you can peek into the database's contents.
